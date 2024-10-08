@@ -1,0 +1,87 @@
+name: login_statistics
+description: "login statistics automatic generator"
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  flutter_bloc: ^7.3.3
+  flutter_easyloading: ^3.0.5
+  beamer: 1.5.3
+  equatable: ^2.0.0
+  http: ^1.2.0
+  path_provider: ^2.0.11
+  permission_handler: ^10.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  fonts:
+      - family: inter
+        fonts:
+          - asset: assets/fonts/inter/Inter-Bold.otf
+          - asset: assets/fonts/inter/Inter-Medium.otf
+          - asset: assets/fonts/inter/Inter-Regular.otf
+          - asset: assets/fonts/inter/Inter-SemiBold.otf
+      - family: Satoshi-Regular
+        fonts:
+          - asset: assets/fonts/satoshi/Satoshi-Regular.otf
+      - family: Satoshi-Bold
+        fonts:
+          - asset: assets/fonts/satoshi/Satoshi-Bold.otf
+      - family: Satoshi-Medium
+        fonts:
+          - asset: assets/fonts/satoshi/Satoshi-Medium.otf
+      - family: RobotoMono-Bold
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Bold.ttf
+      - family: RobotoMono-BoldItalic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-BoldItalic.ttf
+      - family: RobotoMono-ExtraLight
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-ExtraLight.ttf
+      - family: RobotoMono-ExtraLightItalic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-ExtraLightItalic.ttf
+      - family: RobotoMono-Italic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Italic.ttf
+      - family: RobotoMono-Light
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Light.ttf
+      - family: RobotoMono-LightItalic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-LightItalic.ttf
+      - family: RobotoMono-Medium
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Medium.ttf
+      - family: RobotoMono-MediumItalic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-MediumItalic.ttf
+      - family: RobotoMono-Regular
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Regular.ttf
+      - family: RobotoMono-SemiBold
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-SemiBold.ttf
+      - family: RobotoMono-SemiBoldItalic
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-SemiBoldItalic.ttf
+      - family: RobotoMono-Thin
+        fonts:
+          - asset: assets/fonts/roboto-mono/RobotoMono-Thin.ttf
+
+
