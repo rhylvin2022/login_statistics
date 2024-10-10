@@ -2,8 +2,11 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/src/widgets/framework.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:login_statistics/helpers/base_view/base_view.dart';
 import 'package:login_statistics/models/response_data.dart';
@@ -30,40 +33,43 @@ class _SelectContentState extends BaseViewState {
   int indexDay = 0;
   late List<Map<String, String>> data;
   List<Map<String, DateTime>> dateRanges = [];
+  String selectableText = "";
 
   @override
   void initState() {
+    WidgetsFlutterBinding.ensureInitialized();
+    if (Platform.isAndroid) {
+      // await MediaStore.ensureInitialized();
+
+      saveFileToDownloads();
+    }
     // TODO: implement initState
     super.initState();
-    saveFileToDownloads();
   }
 
   Future<void> saveFileToDownloads() async {
-    // Request storage permission
-    if (await _requestPermission(Permission.storage)) {
-      // Directory? downloadsDirectory = await getDownloadsDirectory();
-      //
-      // if (downloadsDirectory != null) {
-      //   String filePath = "${downloadsDirectory.path}/my_file.txt";
-      //
-      //   // Create a text file
-      //   File file = File(filePath);
-      //
-      //   // Write some text to the file
-      //   await file.writeAsString('This is a sample text written to the file.');
-      //
-      //   print("File saved at: $filePath");
-      // } else {
-      //   print("Could not access Downloads directory.");
-      // }
-    } else {
-      print("Permission denied.");
-    }
-  }
+    var status = await Permission.storage.status;
+    var statusCamera = await Permission.camera.status;
+    print('status: $status');
+    print('statusCamera: $statusCamera');
+    // Permission.storage.request();
+    Permission.storage.request();
+    print('requesting');
 
-  Future<bool> _requestPermission(Permission permission) async {
-    final status = await permission.request();
-    return status.isGranted;
+    // openAppSettings();
+    // if (!status.isGranted) {
+    //   print('requesting');
+    //
+    //   /// Request permission
+    //   var result = await Permission.storage.request();
+    //   if (result.isGranted) {
+    //     print("Storage permission granted");
+    //   } else {
+    //     print("Storage permission denied");
+    //   }
+    // } else {
+    //   print("Storage permission already granted");
+    // }
   }
 
   Future<Directory?> getDownloadsDirectory() async {
@@ -131,7 +137,7 @@ class _SelectContentState extends BaseViewState {
     }
 
     if (initial) {
-      // Extract the query parameters
+      /// Extract the query parameters
       Map<String, String> queryParams =
           Map<String, String>.from(Uri.parse(url).queryParameters);
       searchTerm = queryParams['searchTerm'] ?? '';
@@ -190,7 +196,8 @@ class _SelectContentState extends BaseViewState {
         },
       );
       print('updatedUri: $updatedUri');
-      // Update the curlCommand with the new startTime and endTime
+
+      /// Update the curlCommand with the new startTime and endTime
       final response = await http.get(updatedUri, headers: headers);
       if (response.statusCode == 200) {
         Map<String, dynamic> jsonMap = jsonDecode(response.body);
@@ -200,13 +207,12 @@ class _SelectContentState extends BaseViewState {
           String userID = (element.traceId!.replaceAll(searchTerm, ''));
           String loginDate =
               DateFormat('MM/dd').format(dateRanges[indexDay]['endTime']!);
-          print('$loginDate : $userID');
           data.add({loginDate: userID});
         });
         print('nextPageToken: ${responseData.nextPageToken}');
         if (responseData.nextPageToken != null) {
           nextPageToken = responseData.nextPageToken!;
-          _updateRequest();
+          _sendRequest(false);
         } else {
           nextPageToken = '';
           indexDay++;
@@ -214,14 +220,17 @@ class _SelectContentState extends BaseViewState {
           if (indexDay == daysToExtract) {
             print('///////////////////////////DONE///////////////////////////');
 
-            ///done
-            data.forEach((element) {
-              print('${element.keys} : ${element.values}');
-            });
-
             hideLoadingDialog();
+
+            ///done
+
+            ///do the xlsx creation
+            generateExcel();
+
+            ///do copy text
+            generateSelectableText();
           } else {
-            _updateRequest();
+            _sendRequest(false);
           }
         }
       } else {
@@ -234,8 +243,82 @@ class _SelectContentState extends BaseViewState {
     }
   }
 
-  void _updateRequest() {
-    _sendRequest(false);
+  Future<void> generateExcel() async {
+    /// Create a new Excel document
+    var excel = Excel.createExcel();
+
+    /// Select the default sheet
+    Sheet sheetObject = excel['Sheet1'];
+
+    print('data count: ${data.length}');
+
+    /// Loop through the data asynchronously
+    await Future.forEach(data, (element) async {
+      /// Convert the date and value to proper types
+      var dateCell = CellIndex.indexByString("A${sheetObject.maxRows + 1}");
+      var valueCell = CellIndex.indexByString("B${sheetObject.maxRows + 1}");
+      sheetObject.cell(dateCell).value = TextCellValue(element.keys.first);
+      sheetObject.cell(valueCell).value = TextCellValue(element.values.first);
+
+      print('${element.keys} : ${element.values}');
+      await Future.delayed(const Duration(milliseconds: 1));
+    });
+
+    if (await Permission.storage.request().isGranted) {
+      print('hello world');
+
+      /// Get the path to the Downloads directory
+      Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
+
+      String outputPath = '${downloadsDirectory.path}/output_file.xlsx';
+
+      /// Save the Excel file
+      var fileBytes = excel.save();
+
+      ///Delete file if existing
+      // File file = File(outputPath);
+      //
+      // if (file.existsSync()) {
+      //   file.deleteSync();
+      // }
+
+      File(outputPath)
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(fileBytes!);
+
+      /// Write the file to the local system, creating or replacing if necessary
+      // file.writeAsBytesSync(fileBytes!, flush: true);
+
+      print('Excel file created at $outputPath');
+      hideLoadingDialog();
+    }
+  }
+
+  Future<void> generateSelectableText() async {
+    /// Create a formatted string from the data
+    setState(() {
+      selectableText =
+          // data
+          // .map((entry) => '${entry.keys.first}: ${entry.values.first}')
+          // .join('\n');
+          data
+              .map((entry) => '${entry.keys.first}\t${entry.values.first}')
+              .join('\n');
+    });
+
+    // Copy formatted data to clipboard
+    Clipboard.setData(ClipboardData(text: selectableText));
+
+    // Show toast message
+    Fluttertoast.showToast(
+      msg: "Text copied to clipboard successfully!",
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      timeInSecForIosWeb: 1,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
   }
 
   @override
@@ -258,10 +341,23 @@ class _SelectContentState extends BaseViewState {
           PrimaryButton(
             buttonText: 'Extract',
             onPressed: () {
+              Permission.storage.request();
               showLoadingDialog();
               _sendRequest(true);
+              FocusScope.of(context).unfocus();
             },
           ),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.03,
+          ),
+          // selectableText != ""
+          //     ? SingleChildScrollView(
+          //         child: SelectableText(
+          //           selectableText,
+          //           style: const TextStyle(fontSize: 18),
+          //         ),
+          //       )
+          //     : Container(),
         ],
       );
 }
