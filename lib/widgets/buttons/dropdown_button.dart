@@ -101,7 +101,6 @@ class _DropdownButtonState extends State<DropdownButton> {
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(15),
-                    primary: AppColors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(13.0),
                       side: const BorderSide(color: Colors.grey),

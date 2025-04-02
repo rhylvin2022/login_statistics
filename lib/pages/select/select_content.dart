@@ -39,45 +39,10 @@ class _SelectContentState extends BaseViewState {
   void initState() {
     WidgetsFlutterBinding.ensureInitialized();
     if (Platform.isAndroid) {
-      // await MediaStore.ensureInitialized();
-
-      saveFileToDownloads();
+      Permission.manageExternalStorage.request();
     }
     // TODO: implement initState
     super.initState();
-  }
-
-  Future<void> saveFileToDownloads() async {
-    var status = await Permission.storage.status;
-    var statusCamera = await Permission.camera.status;
-    print('status: $status');
-    print('statusCamera: $statusCamera');
-    // Permission.storage.request();
-    Permission.storage.request();
-    print('requesting');
-
-    // openAppSettings();
-    // if (!status.isGranted) {
-    //   print('requesting');
-    //
-    //   /// Request permission
-    //   var result = await Permission.storage.request();
-    //   if (result.isGranted) {
-    //     print("Storage permission granted");
-    //   } else {
-    //     print("Storage permission denied");
-    //   }
-    // } else {
-    //   print("Storage permission already granted");
-    // }
-  }
-
-  Future<Directory?> getDownloadsDirectory() async {
-    if (Platform.isAndroid) {
-      return Directory('/storage/emulated/0/Download');
-    } else {
-      return await getApplicationDocumentsDirectory();
-    }
   }
 
   void _sendRequest(bool initial) async {
@@ -196,10 +161,14 @@ class _SelectContentState extends BaseViewState {
         },
       );
       print('updatedUri: $updatedUri');
+      print('headers: $headers');
 
       /// Update the curlCommand with the new startTime and endTime
       final response = await http.get(updatedUri, headers: headers);
+      print('response: $response');
+      print('response: ${response.statusCode}');
       if (response.statusCode == 200) {
+        print('response.body: ${response.body}');
         Map<String, dynamic> jsonMap = jsonDecode(response.body);
         ResponseData responseData = ResponseData.fromJson(jsonMap);
 
@@ -264,34 +233,34 @@ class _SelectContentState extends BaseViewState {
       await Future.delayed(const Duration(milliseconds: 1));
     });
 
-    if (await Permission.storage.request().isGranted) {
-      print('hello world');
+    // if (await Permission.storage.request().isGranted) {
+    print('hello world');
 
-      /// Get the path to the Downloads directory
-      Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
+    /// Get the path to the Downloads directory
+    Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
 
-      String outputPath = '${downloadsDirectory.path}/output_file.xlsx';
+    String outputPath = '${downloadsDirectory.path}/output_file.xlsx';
 
-      /// Save the Excel file
-      var fileBytes = excel.save();
+    /// Save the Excel file
+    var fileBytes = excel.save();
 
-      ///Delete file if existing
-      // File file = File(outputPath);
-      //
-      // if (file.existsSync()) {
-      //   file.deleteSync();
-      // }
+    ///Delete file if existing
+    // File file = File(outputPath);
+    //
+    // if (file.existsSync()) {
+    //   file.deleteSync();
+    // }
 
-      File(outputPath)
-        ..createSync(recursive: true)
-        ..writeAsBytesSync(fileBytes!);
+    File(outputPath)
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(fileBytes!);
 
-      /// Write the file to the local system, creating or replacing if necessary
-      // file.writeAsBytesSync(fileBytes!, flush: true);
+    /// Write the file to the local system, creating or replacing if necessary
+    // file.writeAsBytesSync(fileBytes!, flush: true);
 
-      print('Excel file created at $outputPath');
-      hideLoadingDialog();
-    }
+    print('Excel file created at $outputPath');
+    hideLoadingDialog();
+    // }
   }
 
   Future<void> generateSelectableText() async {
