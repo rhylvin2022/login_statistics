@@ -53,7 +53,7 @@ class _SelectContentState extends BaseViewState {
     final pageTokenRegex = RegExp(r'pageToken=[^&]*');
 
     /// New values to replace
-    const int newPageSize = 999;
+    const int newPageSize = 25;
 
     if (initial) {
       data = [];
@@ -101,6 +101,12 @@ class _SelectContentState extends BaseViewState {
       headers[match.group(1)!] = match.group(2)!;
     }
 
+    /// Extract cookie if present
+    RegExp cookieRegex = RegExp(r"-b '([^']+)'");
+    final cookieMatch = cookieRegex.firstMatch(curlCommand);
+    if (cookieMatch != null) {
+      headers['Cookie'] = cookieMatch.group(1)!;
+    }
     if (initial) {
       /// Extract the query parameters
       Map<String, String> queryParams =
