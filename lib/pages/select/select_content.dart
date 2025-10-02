@@ -61,6 +61,7 @@ class _SelectContentState extends BaseViewState {
       originalCurl = _controller.text;
       indexDay = 0;
       daysToExtract = 0;
+      print('curl: $originalCurl');
     }
     curlCommand = originalCurl;
 
@@ -79,9 +80,6 @@ class _SelectContentState extends BaseViewState {
     } else {
       curlCommand += '&pageToken=$nextPageToken';
     }
-
-    originalCurl = curlCommand;
-    print('curl: $originalCurl');
 
     /// Parse the cURL command to extract URL and headers
     Map<String, String> headers = {};
@@ -193,29 +191,37 @@ class _SelectContentState extends BaseViewState {
           indexDay++;
           print('indexDay: $indexDay');
           if (indexDay == daysToExtract) {
-            print('///////////////////////////DONE///////////////////////////');
-
-            hideLoadingDialog();
-
-            ///done
-
-            ///do the xlsx creation
-            generateExcel();
-
-            ///do copy text
-            generateSelectableText();
+            done(true);
           } else {
             _sendRequest(false);
           }
         }
       } else {
         print('Request failed with status: ${response.statusCode}');
+        done(false);
       }
     } catch (e) {
       setState(() {
         print('Error: $e');
       });
     }
+  }
+
+  void done(bool success) async {
+    if (success) {
+      print('///////////////////////////DONE///////////////////////////');
+    } else {
+      print('Failed Done');
+      print('Last Next Page Token: $nextPageToken');
+      print(
+          'Last Start Time: ${dateRanges[indexDay]['startTime']!.toIso8601String()}');
+      print(
+          'Last End Time: ${dateRanges[indexDay]['endTime']!.toIso8601String()}');
+    }
+    hideLoadingDialog();
+
+    ///do the xlsx creation
+    generateExcel();
   }
 
   Future<void> generateExcel() async {
@@ -269,32 +275,32 @@ class _SelectContentState extends BaseViewState {
     // }
   }
 
-  Future<void> generateSelectableText() async {
-    /// Create a formatted string from the data
-    setState(() {
-      selectableText =
-          // data
-          // .map((entry) => '${entry.keys.first}: ${entry.values.first}')
-          // .join('\n');
-          data
-              .map((entry) => '${entry.keys.first}\t${entry.values.first}')
-              .join('\n');
-    });
-
-    // Copy formatted data to clipboard
-    Clipboard.setData(ClipboardData(text: selectableText));
-
-    // Show toast message
-    Fluttertoast.showToast(
-      msg: "Text copied to clipboard successfully!",
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      timeInSecForIosWeb: 1,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-  }
+  // Future<void> generateSelectableText() async {
+  //   /// Create a formatted string from the data
+  //   setState(() {
+  //     selectableText =
+  //         // data
+  //         // .map((entry) => '${entry.keys.first}: ${entry.values.first}')
+  //         // .join('\n');
+  //         data
+  //             .map((entry) => '${entry.keys.first}\t${entry.values.first}')
+  //             .join('\n');
+  //   });
+  //
+  //   // Copy formatted data to clipboard
+  //   Clipboard.setData(ClipboardData(text: selectableText));
+  //
+  //   // Show toast message
+  //   Fluttertoast.showToast(
+  //     msg: "Text copied to clipboard successfully!",
+  //     toastLength: Toast.LENGTH_SHORT,
+  //     gravity: ToastGravity.BOTTOM,
+  //     timeInSecForIosWeb: 1,
+  //     backgroundColor: Colors.black,
+  //     textColor: Colors.white,
+  //     fontSize: 16.0,
+  //   );
+  // }
 
   @override
   Widget rootWidget(BuildContext context) => Column(
