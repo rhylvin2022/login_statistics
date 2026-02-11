@@ -1,18 +1,15 @@
-import 'dart:collection';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/src/widgets/framework.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:login_statistics/helpers/base_view/base_view.dart';
 import 'package:login_statistics/models/response_data.dart';
 import 'package:login_statistics/widgets/buttons/primary_button.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 class SelectContent extends BaseView {
@@ -34,6 +31,7 @@ class _SelectContentState extends BaseViewState {
   late List<Map<String, String>> data;
   List<Map<String, DateTime>> dateRanges = [];
   String selectableText = "";
+  Timer? apiTimer;
 
   @override
   void initState() {
@@ -168,7 +166,12 @@ class _SelectContentState extends BaseViewState {
       print('headers: $headers');
 
       /// Update the curlCommand with the new startTime and endTime
-      final response = await http.get(updatedUri, headers: headers);
+      final response = await http
+          .get(
+            updatedUri,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 15));
       print('response: $response');
       print('response: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -201,9 +204,8 @@ class _SelectContentState extends BaseViewState {
         done(false);
       }
     } catch (e) {
-      setState(() {
-        print('Error: $e');
-      });
+      print('Error: $e');
+      done(false);
     }
   }
 
@@ -217,6 +219,9 @@ class _SelectContentState extends BaseViewState {
           'Last Start Time: ${dateRanges[indexDay]['startTime']!.toIso8601String()}');
       print(
           'Last End Time: ${dateRanges[indexDay]['endTime']!.toIso8601String()}');
+
+      ///remove failed
+      _removeLastDayData();
     }
     hideLoadingDialog();
 
@@ -245,9 +250,6 @@ class _SelectContentState extends BaseViewState {
       await Future.delayed(const Duration(milliseconds: 1));
     });
 
-    // if (await Permission.storage.request().isGranted) {
-    print('hello world');
-
     /// Get the path to the Downloads directory
     Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
 
@@ -256,51 +258,25 @@ class _SelectContentState extends BaseViewState {
     /// Save the Excel file
     var fileBytes = excel.save();
 
-    ///Delete file if existing
-    // File file = File(outputPath);
-    //
-    // if (file.existsSync()) {
-    //   file.deleteSync();
-    // }
-
     File(outputPath)
       ..createSync(recursive: true)
       ..writeAsBytesSync(fileBytes!);
 
-    /// Write the file to the local system, creating or replacing if necessary
-    // file.writeAsBytesSync(fileBytes!, flush: true);
-
     print('Excel file created at $outputPath');
     hideLoadingDialog();
-    // }
   }
 
-  // Future<void> generateSelectableText() async {
-  //   /// Create a formatted string from the data
-  //   setState(() {
-  //     selectableText =
-  //         // data
-  //         // .map((entry) => '${entry.keys.first}: ${entry.values.first}')
-  //         // .join('\n');
-  //         data
-  //             .map((entry) => '${entry.keys.first}\t${entry.values.first}')
-  //             .join('\n');
-  //   });
-  //
-  //   // Copy formatted data to clipboard
-  //   Clipboard.setData(ClipboardData(text: selectableText));
-  //
-  //   // Show toast message
-  //   Fluttertoast.showToast(
-  //     msg: "Text copied to clipboard successfully!",
-  //     toastLength: Toast.LENGTH_SHORT,
-  //     gravity: ToastGravity.BOTTOM,
-  //     timeInSecForIosWeb: 1,
-  //     backgroundColor: Colors.black,
-  //     textColor: Colors.white,
-  //     fontSize: 16.0,
-  //   );
-  // }
+  void _removeLastDayData() {
+    if (indexDay <= 0 || indexDay > dateRanges.length) return;
+
+    /// The failed day is the current indexDay
+    final failedDateKey =
+        DateFormat('MM/dd').format(dateRanges[indexDay]['endTime']!);
+
+    print('Removing incomplete data for: $failedDateKey');
+
+    data.removeWhere((element) => element.keys.first == failedDateKey);
+  }
 
   @override
   Widget rootWidget(BuildContext context) => Column(
@@ -331,14 +307,6 @@ class _SelectContentState extends BaseViewState {
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.03,
           ),
-          // selectableText != ""
-          //     ? SingleChildScrollView(
-          //         child: SelectableText(
-          //           selectableText,
-          //           style: const TextStyle(fontSize: 18),
-          //         ),
-          //       )
-          //     : Container(),
         ],
       );
 }
