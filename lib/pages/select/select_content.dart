@@ -33,24 +33,23 @@ class _SelectContentState extends BaseViewState {
   String selectableText = "";
   Timer? apiTimer;
 
+  static const int _maxRetries = 3;
+  int _retryCount = 0;
+
   @override
   void initState() {
     WidgetsFlutterBinding.ensureInitialized();
     if (Platform.isAndroid) {
       Permission.manageExternalStorage.request();
     }
-    // TODO: implement initState
     super.initState();
   }
 
   void _sendRequest(bool initial) async {
     String curlCommand = '';
 
-    /// Regex to find and replace the pageSize and pageToken parameters
     final pageSizeRegex = RegExp(r'pageSize=\d+');
     final pageTokenRegex = RegExp(r'pageToken=[^&]*');
-
-    /// New values to replace
     const int newPageSize = 25;
 
     if (initial) {
@@ -59,11 +58,11 @@ class _SelectContentState extends BaseViewState {
       originalCurl = _controller.text;
       indexDay = 0;
       daysToExtract = 0;
+      _retryCount = 0;
       print('curl: $originalCurl');
     }
     curlCommand = originalCurl;
 
-    /// Update pageSize
     if (pageSizeRegex.hasMatch(curlCommand)) {
       curlCommand =
           curlCommand.replaceFirst(pageSizeRegex, 'pageSize=$newPageSize');
@@ -71,7 +70,6 @@ class _SelectContentState extends BaseViewState {
       curlCommand += '&pageSize=$newPageSize';
     }
 
-    /// Update pageToken
     if (pageTokenRegex.hasMatch(curlCommand) && nextPageToken != '') {
       curlCommand =
           curlCommand.replaceFirst(pageTokenRegex, 'pageToken=$nextPageToken');
@@ -79,77 +77,53 @@ class _SelectContentState extends BaseViewState {
       curlCommand += '&pageToken=$nextPageToken';
     }
 
-    /// Parse the cURL command to extract URL and headers
     Map<String, String> headers = {};
     String url = '';
 
-    /// Find the URL
     RegExp urlRegex = RegExp(r"curl '(https?://[^\s']+)'");
     final urlMatch = urlRegex.firstMatch(curlCommand);
     if (urlMatch != null) {
       url = urlMatch.group(1)!;
     }
 
-    /// Find the headers
     RegExp headerRegex = RegExp(r"-H '(.+?): (.+?)'");
     final headerMatches = headerRegex.allMatches(curlCommand);
     for (var match in headerMatches) {
       headers[match.group(1)!] = match.group(2)!;
     }
 
-    /// Extract cookie if present
     RegExp cookieRegex = RegExp(r"-b '([^']+)'");
     final cookieMatch = cookieRegex.firstMatch(curlCommand);
     if (cookieMatch != null) {
       headers['Cookie'] = cookieMatch.group(1)!;
     }
+
     if (initial) {
-      /// Extract the query parameters
       Map<String, String> queryParams =
           Map<String, String>.from(Uri.parse(url).queryParameters);
       searchTerm = queryParams['searchTerm'] ?? '';
       originalStartTime = queryParams['startTime'] ?? '';
       originalEndTime = queryParams['endTime'] ?? '';
-      print('Original startTime: $originalStartTime');
-      print('Original endTime: $originalEndTime');
 
       DateTime startOriginalDateTime = DateTime.parse(originalStartTime);
       DateTime endOriginalDateTime = DateTime.parse(originalEndTime);
-      print('startDateTime: $startOriginalDateTime');
-      print('endDateTime: $endOriginalDateTime');
 
       Duration duration = endOriginalDateTime.difference(startOriginalDateTime);
-      print('duration: $duration');
-
       double totalDays = duration.inHours / 24;
       int roundedDays = totalDays.round();
-      print('roundedDays: $roundedDays');
       daysToExtract = roundedDays;
 
       dateRanges.clear();
       for (int i = 0; i < daysToExtract; i++) {
         DateTime startDate = startOriginalDateTime.add(Duration(days: i));
         DateTime endDate = startDate.add(const Duration(days: 1));
-
         dateRanges.add({
           'startTime': startDate,
           'endTime': endDate,
         });
       }
-
-      int i = 0;
-      dateRanges.forEach((element) {
-        print('$i $element');
-        i++;
-      });
-
-      headers.forEach((key, value) {
-        print('$key = $value');
-      });
     }
 
-    ///do API call with updated date range.
-    ///
     try {
       Uri uri = Uri.parse(url);
       Map<String, String> queryParams = uri.queryParameters;
@@ -162,20 +136,12 @@ class _SelectContentState extends BaseViewState {
           'pageToken': nextPageToken,
         },
       );
-      print('updatedUri: $updatedUri');
-      print('headers: $headers');
 
-      /// Update the curlCommand with the new startTime and endTime
       final response = await http
-          .get(
-            updatedUri,
-            headers: headers,
-          )
-          .timeout(const Duration(seconds: 15));
-      print('response: $response');
-      print('response: ${response.statusCode}');
+          .get(updatedUri, headers: headers)
+          .timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
-        print('response.body: ${response.body}');
+        _retryCount = 0;
         Map<String, dynamic> jsonMap = jsonDecode(response.body);
         ResponseData responseData = ResponseData.fromJson(jsonMap);
 
@@ -185,6 +151,7 @@ class _SelectContentState extends BaseViewState {
               DateFormat('MM/dd').format(dateRanges[indexDay]['endTime']!);
           data.add({loginDate: userID});
         });
+
         print('nextPageToken: ${responseData.nextPageToken}');
         if (responseData.nextPageToken != null) {
           nextPageToken = responseData.nextPageToken!;
@@ -201,11 +168,42 @@ class _SelectContentState extends BaseViewState {
         }
       } else {
         print('Request failed with status: ${response.statusCode}');
+        if (_retryCount < _maxRetries) {
+          _retryCount++;
+          print('Retrying... attempt $_retryCount of $_maxRetries');
+          await Future.delayed(const Duration(seconds: 3));
+          _sendRequest(false);
+        } else {
+          print('Max retries reached after non-200 response. Giving up.');
+          _retryCount = 0;
+          done(false);
+        }
+        // ─────────────────────────────────────────────────────────
+      }
+    } on TimeoutException catch (e) {
+      print('Timeout error: $e');
+      if (_retryCount < _maxRetries) {
+        _retryCount++;
+        print('Retrying after timeout... attempt $_retryCount of $_maxRetries');
+        await Future.delayed(const Duration(seconds: 5));
+        _sendRequest(false);
+      } else {
+        print('Max retries reached after timeout. Giving up.');
+        _retryCount = 0;
         done(false);
       }
     } catch (e) {
       print('Error: $e');
-      done(false);
+      if (_retryCount < _maxRetries) {
+        _retryCount++;
+        print('Retrying after error... attempt $_retryCount of $_maxRetries');
+        await Future.delayed(const Duration(seconds: 3));
+        _sendRequest(false);
+      } else {
+        print('Max retries reached after error. Giving up.');
+        _retryCount = 0;
+        done(false);
+      }
     }
   }
 
@@ -219,43 +217,27 @@ class _SelectContentState extends BaseViewState {
           'Last Start Time: ${dateRanges[indexDay]['startTime']!.toIso8601String()}');
       print(
           'Last End Time: ${dateRanges[indexDay]['endTime']!.toIso8601String()}');
-
-      ///remove failed
       _removeLastDayData();
     }
-    hideLoadingDialog();
-
-    ///do the xlsx creation
     generateExcel();
   }
 
   Future<void> generateExcel() async {
-    /// Create a new Excel document
     var excel = Excel.createExcel();
-
-    /// Select the default sheet
     Sheet sheetObject = excel['Sheet1'];
 
     print('data count: ${data.length}');
 
-    /// Loop through the data asynchronously
     await Future.forEach(data, (element) async {
-      /// Convert the date and value to proper types
       var dateCell = CellIndex.indexByString("A${sheetObject.maxRows + 1}");
       var valueCell = CellIndex.indexByString("B${sheetObject.maxRows + 1}");
       sheetObject.cell(dateCell).value = TextCellValue(element.keys.first);
       sheetObject.cell(valueCell).value = TextCellValue(element.values.first);
-
-      print('${element.keys} : ${element.values}');
       await Future.delayed(const Duration(milliseconds: 1));
     });
 
-    /// Get the path to the Downloads directory
     Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
-
     String outputPath = '${downloadsDirectory.path}/output_file.xlsx';
-
-    /// Save the Excel file
     var fileBytes = excel.save();
 
     File(outputPath)
@@ -268,13 +250,9 @@ class _SelectContentState extends BaseViewState {
 
   void _removeLastDayData() {
     if (indexDay <= 0 || indexDay > dateRanges.length) return;
-
-    /// The failed day is the current indexDay
     final failedDateKey =
         DateFormat('MM/dd').format(dateRanges[indexDay]['endTime']!);
-
     print('Removing incomplete data for: $failedDateKey');
-
     data.removeWhere((element) => element.keys.first == failedDateKey);
   }
 
