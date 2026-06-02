@@ -237,7 +237,8 @@ class _SelectContentState extends BaseViewState {
     // ==================== SMART FILENAME ====================
     String platform = originalCurl.contains(':ios:') ? "IOS" : "Android";
 
-    DateTime startDate = DateTime.parse(originalStartTime);
+    DateTime startDate =
+        DateTime.parse(originalStartTime).add(const Duration(days: 1));
 
     DateTime actualEndDate;
     if (indexDay >= daysToExtract) {
