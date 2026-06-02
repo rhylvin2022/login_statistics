@@ -140,6 +140,7 @@ class _SelectContentState extends BaseViewState {
       final response = await http
           .get(updatedUri, headers: headers)
           .timeout(const Duration(seconds: 60));
+
       if (response.statusCode == 200) {
         _retryCount = 0;
         Map<String, dynamic> jsonMap = jsonDecode(response.body);
@@ -178,7 +179,6 @@ class _SelectContentState extends BaseViewState {
           _retryCount = 0;
           done(false);
         }
-        // ─────────────────────────────────────────────────────────
       }
     } on TimeoutException catch (e) {
       print('Timeout error: $e');
@@ -209,14 +209,12 @@ class _SelectContentState extends BaseViewState {
 
   void done(bool success) async {
     if (success) {
-      print('///////////////////////////DONE///////////////////////////');
+      print(
+          '/////////////////////////// ALL DAYS COMPLETED SUCCESSFULLY ///////////////////////////');
     } else {
-      print('Failed Done');
-      print('Last Next Page Token: $nextPageToken');
+      print('⚠️ PARTIAL COMPLETION - Failed on day index: $indexDay');
       print(
-          'Last Start Time: ${dateRanges[indexDay]['startTime']!.toIso8601String()}');
-      print(
-          'Last End Time: ${dateRanges[indexDay]['endTime']!.toIso8601String()}');
+          'Last attempted Start Time: ${dateRanges[indexDay]['startTime']!.toIso8601String()}');
       _removeLastDayData();
     }
     generateExcel();
@@ -226,7 +224,7 @@ class _SelectContentState extends BaseViewState {
     var excel = Excel.createExcel();
     Sheet sheetObject = excel['Sheet1'];
 
-    print('data count: ${data.length}');
+    print('Final data count: ${data.length}');
 
     await Future.forEach(data, (element) async {
       var dateCell = CellIndex.indexByString("A${sheetObject.maxRows + 1}");
@@ -236,15 +234,42 @@ class _SelectContentState extends BaseViewState {
       await Future.delayed(const Duration(milliseconds: 1));
     });
 
+    // ==================== SMART FILENAME ====================
+    String platform = originalCurl.contains(':ios:') ? "IOS" : "Android";
+
+    DateTime startDate = DateTime.parse(originalStartTime);
+
+    DateTime actualEndDate;
+    if (indexDay >= daysToExtract) {
+      // Success - all days completed
+      actualEndDate = DateTime.parse(originalEndTime);
+    } else {
+      // Failed midway - use last successful day
+      actualEndDate = dateRanges[indexDay - 1]['endTime']!;
+    }
+
+    String monthName = DateFormat('MMMM').format(startDate);
+    String startDay = DateFormat('dd').format(startDate);
+    String endDay = DateFormat('dd').format(actualEndDate);
+
+    String dateRange = (startDay == endDay) ? startDay : "$startDay-$endDay";
+
+    String fileName = "${platform}-${monthName}-${dateRange}.xlsx";
+    // =======================================================
+
     Directory? downloadsDirectory = Directory('/storage/emulated/0/Download');
-    String outputPath = '${downloadsDirectory.path}/output_file.xlsx';
+    String outputPath = '${downloadsDirectory.path}/$fileName';
+
     var fileBytes = excel.save();
 
     File(outputPath)
       ..createSync(recursive: true)
       ..writeAsBytesSync(fileBytes!);
 
-    print('Excel file created at $outputPath');
+    print('✅ Excel file created: $fileName');
+    print(
+        '📅 Range: ${DateFormat('MMM dd').format(startDate)} - ${DateFormat('MMM dd').format(actualEndDate)}');
+
     hideLoadingDialog();
   }
 
