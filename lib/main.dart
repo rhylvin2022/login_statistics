@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:hdps_screen_awake_sdk/hdps_screen_awake_sdk.dart';
 import 'package:login_statistics/app.dart';
 import 'package:login_statistics/bloc/base_bloc.dart';
 import 'package:login_statistics/global/app_colors.dart';
@@ -8,6 +9,7 @@ import 'package:login_statistics/global/app_colors.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   configLoading();
+  HdpsScreenAwake.enable();
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp])
       .then((_) {

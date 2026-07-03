@@ -5,6 +5,7 @@ import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/src/widgets/framework.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:login_statistics/helpers/base_view/base_view.dart';
 import 'package:login_statistics/models/response_data.dart';
@@ -20,7 +21,7 @@ class SelectContent extends BaseView {
 }
 
 class _SelectContentState extends BaseViewState {
-  final TextEditingController _controller = TextEditingController();
+  String curlText = "";
   String originalCurl = "";
   String nextPageToken = "";
   String searchTerm = "";
@@ -30,8 +31,6 @@ class _SelectContentState extends BaseViewState {
   int indexDay = 0;
   late List<Map<String, String>> data;
   List<Map<String, DateTime>> dateRanges = [];
-  String selectableText = "";
-  Timer? apiTimer;
 
   static const int _maxRetries = 3;
   int _retryCount = 0;
@@ -55,7 +54,7 @@ class _SelectContentState extends BaseViewState {
     if (initial) {
       data = [];
       nextPageToken = '';
-      originalCurl = _controller.text;
+      originalCurl = curlText;
       indexDay = 0;
       daysToExtract = 0;
       _retryCount = 0;
@@ -80,7 +79,7 @@ class _SelectContentState extends BaseViewState {
     Map<String, String> headers = {};
     String url = '';
 
-    RegExp urlRegex = RegExp(r"curl '(https?://[^\s']+)'");
+    RegExp urlRegex = RegExp(r"curl '(https://[^\s']+)'");
     final urlMatch = urlRegex.firstMatch(curlCommand);
     if (urlMatch != null) {
       url = urlMatch.group(1)!;
@@ -272,6 +271,24 @@ class _SelectContentState extends BaseViewState {
         '📅 Range: ${DateFormat('MMM dd').format(startDate)} - ${DateFormat('MMM dd').format(actualEndDate)}');
 
     hideLoadingDialog();
+    Fluttertoast.showToast(msg: '✅ Excel file created: $fileName');
+    _reset();
+  }
+
+  void _reset() {
+    setState(() {
+      curlText = "";
+      originalCurl = "";
+      nextPageToken = "";
+      searchTerm = "";
+      originalStartTime = "";
+      originalEndTime = "";
+      daysToExtract = 0;
+      indexDay = 0;
+      data = [];
+      dateRanges = [];
+      _retryCount = 0;
+    });
   }
 
   void _removeLastDayData() {
@@ -287,23 +304,27 @@ class _SelectContentState extends BaseViewState {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          TextField(
-            keyboardType: TextInputType.multiline,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              labelText: 'Enter your curl',
-              hintText: 'Paste your curl here',
-            ),
-            controller: _controller,
-          ),
+          // TextField(
+          //   keyboardType: TextInputType.multiline,
+          //   decoration: const InputDecoration(
+          //     border: OutlineInputBorder(),
+          //     labelText: 'Enter your curl',
+          //     hintText: 'Paste your curl here',
+          //   ),
+          //   controller: _controller,
+          // ),
           SizedBox(
             height: MediaQuery.of(context).size.height * 0.03,
           ),
           PrimaryButton(
-            buttonText: 'Extract',
-            onPressed: () {
-              Permission.storage.request();
+            buttonText: 'Paste Curl and Extract',
+            onPressed: () async {
               showLoadingDialog();
+
+              ClipboardData? data =
+                  await Clipboard.getData(Clipboard.kTextPlain);
+              curlText = data!.text!;
+              Permission.storage.request();
               _sendRequest(true);
               FocusScope.of(context).unfocus();
             },
