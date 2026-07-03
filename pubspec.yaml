@@ -22,7 +22,8 @@ dependencies:
   fluttertoast: ^8.2.12
   hdps_screen_awake_sdk:
     git:
-      url: https://2ZTUCVwPYfayFAhoCdjthPaJf0V5F8oiBrVPP63tTuEeEVzTsuAzJQQJ99CFACAAAAAfCtSSAAASAZDO28Gy@dev.azure.com/hcs-lk/ibSuite/_git/hdps_screen_awake_sdk
+#      url: https://2ZTUCVwPYfayFAhoCdjthPaJf0V5F8oiBrVPP63tTuEeEVzTsuAzJQQJ99CFACAAAAAfCtSSAAASAZDO28Gy@dev.azure.com/hcs-lk/ibSuite/_git/hdps_screen_awake_sdk
+      url: https://@dev.azure.com/hcs-lk/ibSuite/_git/hdps_screen_awake_sdk
       ref: 9f12bb2412e136704c79314fbca4568c989416f9
 
 dev_dependencies:
