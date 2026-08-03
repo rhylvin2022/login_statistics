@@ -78,8 +78,7 @@ class _SelectContentState extends BaseViewState {
 
     Map<String, String> headers = {};
     String url = '';
-
-    RegExp urlRegex = RegExp(r"curl '(https://[^\s']+)'");
+    RegExp urlRegex = RegExp(r"(?:--url\s+)?'(https://[^']+)'");
     final urlMatch = urlRegex.firstMatch(curlCommand);
     if (urlMatch != null) {
       url = urlMatch.group(1)!;
